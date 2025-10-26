@@ -1,0 +1,49 @@
+# Archivos de configuración con credenciales sensibles
+config.json
+# Pero no ignorar el archivo de ejemplo
+!config.example.json
+
+# Archivos temporales de Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Carpetas temporales
+temp/
+tmp/
+*.tmp
+
+# Archivos de reporte generados
+*.zip
+*.html
+*.xml
+*.txt
+
+# Logs
+*.log
+
+# PowerShell
+*.ps1xml
+
+# Ejecutables compilados
+*.exe
+*.dll
+
+# Carpeta de distribución
+dist/
+
+# Backups
+*.bak
+*.backup
+
+# Visual Studio Code
+.vscode/
+
+# JetBrains IDEs
+.idea/
+
+# Archivos de sistema macOS
+.DS_Store
+
+# Node modules (si se usa alguna herramienta de build)
+node_modules/

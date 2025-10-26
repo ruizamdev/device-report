@@ -1,0 +1,37 @@
+{
+  "WorkshopNetwork": {
+    "DetectionIP": "192.168.1.85",
+    "PingTimeout": 1000,
+    "PingCount": 2
+  },
+  "NetworkShare": {
+    "Path": "\\\\192.168.1.85\\reportes",
+    "Username": "USUARIO_DEL_RECURSO_COMPARTIDO",
+    "Password": "CONTRASEÑA_DEL_RECURSO_COMPARTIDO",
+    "RequiresAuth": true
+  },
+  "OneDrive": {
+    "TenantId": "common",
+    "ClientId": "YOUR_CLIENT_ID_HERE",
+    "ClientSecret": "YOUR_CLIENT_SECRET_HERE",
+    "UploadFolder": "DeviceReports",
+    "RedirectUri": "http://localhost"
+  },
+  "Reports": {
+    "TempFolder": "$env:TEMP\\DeviceReports",
+    "Formats": ["HTML", "XML", "TXT"],
+    "CompressReports": true,
+    "CompressionFormat": "ZIP"
+  },
+  "DataCollection": {
+    "Hardware": true,
+    "User": true,
+    "Software": {
+      "InstalledPrograms": true,
+      "WindowsUpdates": true,
+      "RunningServices": true,
+      "ActiveProcesses": true
+    },
+    "Network": true
+  }
+}
