@@ -82,9 +82,9 @@ try {
         outputFile = $outputFile
         title = "Device Report"
         version = "1.0.0.0"
-        company = "ArtmannMX"
+        company = "Armando Ruiz"
         product = "Device Report"
-        copyright = "© 2025 ArtmannMX"
+        copyright = "© 2025 ruizamdev"
         description = "Sistema de recolección de información de dispositivos"
         requireAdmin = $false  # Cambiar a $true si se requiere admin
         noConsole = $false     # Cambiar a $true para ocultar la consola

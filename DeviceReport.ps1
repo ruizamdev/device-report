@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 Device Report - Sistema de recolección y envío de información de dispositivos
 
@@ -51,10 +51,10 @@ function Start-DeviceReport {
         Show-Banner
 
         # Obtener directorio del script
-        $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
+        $scriptPath = $PSScriptRoot
         if (-not $scriptPath) {
-            Write-Host "[INFO] Se utilizó la variable PSScriptRoot para establecer la ruta del script" -ForegroundColor Yellow
-            $scriptPath = $PSScriptRoot
+            # Fallback para versiones antiguas de PowerShell
+            $scriptPath = Split-Path -Parent $MyInvocation.ScriptName
         }
 
         # Cargar configuración
@@ -92,15 +92,15 @@ function Start-DeviceReport {
         $modulesPath = Join-Path $scriptPath "modules"
 
         $modules = @(
-            "Test-WorkshopNetwork.ps1",
-            "Get-HardwareInfo.ps1",
-            "Get-UserInfo.ps1",
-            "Get-SoftwareInfo.ps1",
-            "Get-NetworkInfo.ps1",
-            "New-Reports.ps1",
-            "Compress-Reports.ps1",
-            "Send-ToNetworkShare.ps1",
-            "Send-ToOneDrive.ps1"
+            "Test-WorkshopNetwork.psm1",
+            "Get-HardwareInfo.psm1",
+            "Get-UserInfo.psm1",
+            "Get-SoftwareInfo.psm1",
+            "Get-NetworkInfo.psm1",
+            "New-Reports.psm1",
+            "Compress-Reports.psm1",
+            "Send-ToNetworkShare.psm1",
+            "Send-ToOneDrive.psm1"
         )
 
         foreach ($module in $modules) {
