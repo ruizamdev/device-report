@@ -53,7 +53,7 @@ function Start-DeviceReport {
         # Obtener directorio del script
         $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
         if (-not $scriptPath) {
-            Write-Host "[INFO] Se utilizó la variable $PSScriptRoot para establecer la ruta del script" -ForegroundColor Yellow
+            Write-Host "[INFO] Se utilizó la variable PSScriptRoot para establecer la ruta del script" -ForegroundColor Yellow
             $scriptPath = $PSScriptRoot
         }
 
