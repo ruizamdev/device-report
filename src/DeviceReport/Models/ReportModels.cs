@@ -6,6 +6,9 @@ namespace DeviceReport.Models;
 
 public sealed class DeviceReportData
 {
+    /// <summary>Versión del formato de report.json que lee el panel web.</summary>
+    public int SchemaVersion { get; set; } = 1;
+    public string AppVersion { get; set; } = typeof(DeviceReportData).Assembly.GetName().Version?.ToString() ?? string.Empty;
     public string ClientName { get; set; } = string.Empty;
     public string Technician { get; set; } = string.Empty;
     public string Notes { get; set; } = string.Empty;

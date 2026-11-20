@@ -15,6 +15,12 @@ services:
       DATA_DIR: /data
       API_TOKEN: ${API_TOKEN:?}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-50}
+      # Panel (lectura). Si faltan, los endpoints de lectura responden 503.
+      # Configurar con ./set-admin-password.sh en el VPS.
+      ADMIN_USER: ${ADMIN_USER:-}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
+      SESSION_SECRET: ${SESSION_SECRET:-}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-12}
       TZ: America/Mexico_City
     volumes:
       - data:/data

@@ -62,8 +62,19 @@ Las imágenes las construye GitHub Actions (`.github/workflows/deploy.yml`) y se
   o re-ejecutar el workflow de un commit anterior.
 
 ### Endpoints principales
-- `GET /health` — Estado del servicio
-- `POST /api/v1/reports` — Subida de `.zip` + `metadata` JSON (Bearer Token)
-- `GET /api/v1/reports` — Listado filtrable por `client`, `hostname`, `disk_status`
-- `GET /api/v1/reports/{id}` — Detalle completo del reporte
-- `GET /api/v1/reports/{id}/download` — Descarga del `.zip`
+
+**Subida** (Bearer `API_TOKEN`, el que lleva `DeviceReport.exe`; este token **no** permite leer):
+- `POST /api/v1/reports` — `.zip` + `metadata` JSON. Si el ZIP trae `report.json` (cliente ≥ 2.1.0) se indexa el reporte completo.
+
+**Panel / lectura** (cookie de sesión vía `POST /api/v1/auth/login`):
+- `POST /api/v1/auth/login`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/me`
+- `GET /api/v1/reports` — filtros `q`, `client`, `hostname`, `serial`, `disk_status`, `date_from`, `date_to`, paginación `limit`/`offset`
+- `GET /api/v1/reports/{id}` — detalle con `report` completo (`null` en reportes de clientes < 2.1.0)
+- `GET /api/v1/reports/{id}/html` — `reporte.html` del ZIP servido con CSP `sandbox`
+- `GET /api/v1/reports/{id}/download` — ZIP original
+- `GET /api/v1/devices/{serial}/reports` — historial de un equipo
+- `GET /api/v1/stats` — totales, estado de discos, por mes y clientes principales
+- `GET /health` — público
+
+**Usuario del panel:** en el VPS, `ssh -t deploy@<vps> /srv/apps/<app>/set-admin-password.sh [usuario]`.
+Cambiar la contraseña invalida las sesiones abiertas.
