@@ -6,3 +6,4 @@ test_*.py
 requirements-dev.txt
 Dockerfile
 docker-compose.yml
+.venv/

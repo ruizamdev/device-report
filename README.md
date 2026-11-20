@@ -25,6 +25,20 @@ build.cmd
 
 El ejecutable se genera en `dist/DeviceReport.exe`. Coloca junto a él un archivo `config.json` basado en `config.example.json` con tu `ApiToken`.
 
+## Panel web
+
+`https://reportes.sismanager.cloud` (producción) y `https://test-reportes.sismanager.cloud` (staging).
+Páginas renderizadas en el servidor (FastAPI + Jinja2 + HTMX, sin build de frontend):
+
+- **Inicio**: totales, semáforo de discos, reportes por mes, alertas recientes y clientes principales.
+- **Reportes**: búsqueda (cliente, equipo, serie, usuario, modelo, técnico), filtro por estado y fechas, paginación.
+- **Detalle**: pestañas Resumen, Discos, Hardware, Sistema, Red, Software (con filtro) y Reporte original
+  (el `reporte.html` del ZIP en un iframe aislado), más descarga del ZIP.
+- **Equipo** (`/equipos/<serie>`): historial por número de serie y evolución de las métricas S.M.A.R.T.
+
+Código en `server/web.py`, `server/templates/` y `server/static/` (HTMX 2.0.4 incluido en el repo; CSP estricta,
+sin scripts ni estilos en línea).
+
 ## Backend (`server/`)
 
 Desarrollo local:
@@ -34,7 +48,9 @@ cd server
 python -m venv .venv && . .venv/bin/activate
 pip install -r requirements-dev.txt
 python -m pytest -q
-DATA_DIR=./data API_TOKEN=dev uvicorn app:app --reload
+DATA_DIR=./data API_TOKEN=dev COOKIE_SECURE=false SESSION_SECRET=$(openssl rand -hex 32) \
+  ADMIN_USER=admin ADMIN_PASSWORD_HASH=$(echo 'clave-local-123' | python app.py hash-password) \
+  uvicorn app:app --reload
 ```
 
 ## Flujo de ramas y despliegue

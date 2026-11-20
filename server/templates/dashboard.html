@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, empty %}
+{% block title %}Inicio{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Inicio</h1>
+  <a class="btn" href="/reportes">Ver todos los reportes</a>
+</div>
+
+<section class="kpis">
+  <div class="card kpi"><span class="kpi-label">Reportes</span><span class="kpi-value">{{ stats.total_reports | num }}</span></div>
+  <div class="card kpi"><span class="kpi-label">Equipos distintos</span><span class="kpi-value">{{ stats.unique_devices | num }}</span></div>
+  <a class="card kpi kpi-link" href="/reportes?disk_status=CRITICAL"><span class="kpi-label"><i class="dot dot-critical"></i>Discos críticos</span><span class="kpi-value">{{ stats.by_disk_status.CRITICAL | num }}</span></a>
+  <a class="card kpi kpi-link" href="/reportes?disk_status=WARNING"><span class="kpi-label"><i class="dot dot-warning"></i>Con advertencia</span><span class="kpi-value">{{ stats.by_disk_status.WARNING | num }}</span></a>
+</section>
+
+{% if stats.total_reports == 0 %}
+  <div class="card">{{ empty('Todavía no hay reportes', 'Cuando DeviceReport.exe suba el primero aparecerá aquí.') }}</div>
+{% else %}
+<section class="grid-2">
+  <div class="card">
+    <h2>Salud de discos</h2>
+    <svg class="strip" viewBox="0 0 100 10" preserveAspectRatio="none" role="img" aria-label="Distribución por estado de disco">
+      {% for p in strip %}<rect class="fill-{{ p.cls }}" x="{{ p.x }}" y="0" width="{{ p.w }}" height="10"><title>{{ p.label }}: {{ p.value }}</title></rect>{% endfor %}
+    </svg>
+    <ul class="legend">
+      {% for key in ['OK', 'WARNING', 'CRITICAL', 'UNKNOWN'] %}
+      <li><a href="/reportes?disk_status={{ key }}"><i class="dot dot-{{ key | status_class }}"></i>{{ key | status_label }} <strong>{{ stats.by_disk_status[key] }}</strong></a></li>
+      {% endfor %}
+    </ul>
+
+    <h2 class="mt">Reportes por mes</h2>
+    <div class="chart-scroll">
+      <svg class="bars" viewBox="-4 -16 {{ chart.width + 8 }} {{ chart.height + 34 }}" width="{{ chart.width + 8 }}" height="{{ chart.height + 34 }}" role="img" aria-label="Reportes por mes y estado">
+        <line class="axis" x1="-4" x2="{{ chart.width + 4 }}" y1="{{ chart.height }}" y2="{{ chart.height }}"/>
+        {% for b in chart.bars %}
+          <g>
+            <title>{{ b.month }}: {{ b.total }} reportes{% for s in b.segments %} · {{ s.label }} {{ s.value }}{% endfor %}</title>
+            {% for s in b.segments %}<rect class="fill-{{ s.cls }}" x="{{ b.x }}" y="{{ s.y }}" width="{{ b.w }}" height="{{ s.h }}" rx="2"/>{% endfor %}
+            {% if b.total %}<text class="bar-total" x="{{ b.x + b.w / 2 }}" y="{{ (b.segments | map(attribute='y') | min) - 4 }}">{{ b.total }}</text>{% endif %}
+            <text class="bar-label" x="{{ b.x + b.w / 2 }}" y="{{ chart.height + 14 }}">{{ b.label }}</text>
+          </g>
+        {% endfor %}
+      </svg>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Alertas recientes</h2>
+    {% if alerts %}
+    <ul class="list">
+      {% for r in alerts %}
+      <li>
+        <a class="list-row" href="/reportes/{{ r.id }}">
+          {{ badge(r.disk_overall_status) }}
+          <span class="grow"><strong>{{ r.client_name }}</strong><span class="muted"> · {{ r.hostname or '—' }}</span></span>
+          <span class="muted nowrap" title="{{ r.created_at | dt }}">{{ r.created_at | ago }}</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+      {{ empty('Sin alertas', 'Ningún reporte con discos en advertencia o críticos.') }}
+    {% endif %}
+
+    <h2 class="mt">Clientes con más reportes</h2>
+    <div class="table-wrap"><table class="table compact">
+      <thead><tr><th>Cliente</th><th class="num">Reportes</th><th class="num">Con alertas</th><th>Último</th></tr></thead>
+      <tbody>
+      {% for c in stats.top_clients %}
+        <tr>
+          <td><a href="/reportes?q={{ c.client_name | urlencode }}">{{ c.client_name }}</a></td>
+          <td class="num">{{ c.total }}</td>
+          <td class="num">{% if c.with_alerts %}<span class="text-warning">{{ c.with_alerts }}</span>{% else %}0{% endif %}</td>
+          <td class="muted nowrap">{{ c.last_report_at | dt('%d/%m/%Y') }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+</section>
+
+<section class="card">
+  <div class="card-head"><h2>Últimos reportes</h2><a href="/reportes">Ver todos →</a></div>
+  {% with items = recent %}{% include "partials/report_rows_table.html" %}{% endwith %}
+</section>
+{% endif %}
+{% endblock %}

@@ -20,17 +20,29 @@ ADMIN_PASSWORD = "contraseña-segura-123"
 UPLOAD_HEADERS = {"Authorization": f"Bearer {UPLOAD_TOKEN}"}
 
 
+def load_app() -> ModuleType:
+    """Re-import core → web → app so Settings picks up the patched environment."""
+    import app
+    import core
+    import web
+
+    importlib.reload(core)
+    importlib.reload(web)
+    return importlib.reload(app)
+
+
 @pytest.fixture()
 def app_module(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ModuleType:
-    import app as module
+    import core
 
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("API_TOKEN", UPLOAD_TOKEN)
     monkeypatch.setenv("ADMIN_USER", ADMIN_USER)
-    monkeypatch.setenv("ADMIN_PASSWORD_HASH", module.hash_password(ADMIN_PASSWORD, n=2**10))
+    monkeypatch.setenv("ADMIN_PASSWORD_HASH", core.hash_password(ADMIN_PASSWORD, n=2**10))
     monkeypatch.setenv("SESSION_SECRET", "s" * 64)
     monkeypatch.setenv("COOKIE_SECURE", "false")
-    return importlib.reload(module)
+    monkeypatch.setenv("TZ", "America/Mexico_City")
+    return load_app()
 
 
 @pytest.fixture()
@@ -157,13 +169,11 @@ def test_login_is_throttled(client: TestClient) -> None:
 
 
 def test_panel_disabled_without_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    import app as module
-
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("API_TOKEN", UPLOAD_TOKEN)
     for var in ("ADMIN_USER", "ADMIN_PASSWORD_HASH", "SESSION_SECRET"):
         monkeypatch.delenv(var, raising=False)
-    module = importlib.reload(module)
+    module = load_app()
     with TestClient(module.app) as c:
         assert c.get("/health").status_code == 200
         assert c.post("/api/v1/auth/login", json={"username": "a", "password": "b"}).status_code == 503
@@ -277,11 +287,11 @@ def test_legacy_db_is_migrated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
             "INSERT INTO reports (id, client_name, disk_overall_status, zip_filename, zip_path, zip_size_bytes,"
             " created_at) VALUES ('old', 'Legacy', 'OK', 'a.zip', 'x/a.zip', 1, '2026-11-18T00:00:00+00:00')"
         )
-    import app as module
-
     monkeypatch.setenv("DATA_DIR", str(data_dir))
-    module = importlib.reload(module)
-    module.init_db()
+    load_app()
+    import core
+
+    core.init_db()
     with sqlite3.connect(data_dir / "reports.db") as conn:
         cols = {r[1] for r in conn.execute("PRAGMA table_info(reports)")}
     assert "full_json" in cols
@@ -290,11 +300,13 @@ def test_legacy_db_is_migrated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
 # --------------------------------------------------------------------------- passwords / CLI
 
 def test_password_hash_roundtrip(app_module: ModuleType) -> None:
-    encoded = app_module.hash_password("una-clave-larga", n=2**10)
+    import core
+
+    encoded = core.hash_password("una-clave-larga", n=2**10)
     assert "$" not in encoded  # safe to paste in a docker compose .env
-    assert app_module.verify_password("una-clave-larga", encoded)
-    assert not app_module.verify_password("otra", encoded)
-    assert not app_module.verify_password("x", "basura")
+    assert core.verify_password("una-clave-larga", encoded)
+    assert not core.verify_password("otra", encoded)
+    assert not core.verify_password("x", "basura")
 
 
 def test_hash_password_cli() -> None:
@@ -312,5 +324,7 @@ def test_hash_password_cli() -> None:
 
 def test_password_change_invalidates_sessions(viewer: TestClient, app_module: ModuleType) -> None:
     assert viewer.get("/api/v1/auth/me").status_code == 200
-    app_module.settings.admin_password_hash = app_module.hash_password("nueva-clave-segura", n=2**10)
+    import core
+
+    core.settings.admin_password_hash = core.hash_password("nueva-clave-segura", n=2**10)
     assert viewer.get("/api/v1/auth/me").status_code == 401

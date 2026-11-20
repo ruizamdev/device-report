@@ -1,0 +1,17 @@
+{% macro badge(status) -%}
+<span class="badge badge-{{ status | status_class }}">{{ status | status_label }}</span>
+{%- endmacro %}
+
+{% macro dash(value) -%}{{ value if value not in (None, '', []) else '—' }}{%- endmacro %}
+
+{% macro kv(label, value) -%}
+<div class="kv"><dt>{{ label }}</dt><dd>{{ dash(value) }}</dd></div>
+{%- endmacro %}
+
+{% macro empty(title, text='') -%}
+<div class="empty">
+  <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M4 5h16v11H4z M8 20h8 M12 16v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+  <p class="empty-title">{{ title }}</p>
+  {% if text %}<p class="muted">{{ text }}</p>{% endif %}
+</div>
+{%- endmacro %}

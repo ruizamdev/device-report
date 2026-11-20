@@ -1,0 +1,20 @@
+{% from "_macros.html" import badge, empty %}
+{% if disks %}
+<div class="disks">
+  {% for d in disks %}
+  <article class="disk disk-{{ d.status | status_class }}">
+    <header><strong>{{ d.model or 'Disco' }}</strong>{{ badge(d.status) }}</header>
+    <p class="muted small">{{ d.capacity_gb | num(0) }} GB · {{ d.protocol or '—' }}{% if d.serial %} · <span class="mono">{{ d.serial }}</span>{% endif %}</p>
+    <dl class="disk-metrics">
+      <div><dt>Temp.</dt><dd>{{ (d.temperature_c ~ ' °C') if d.temperature_c is number else '—' }}</dd></div>
+      <div><dt>Horas</dt><dd>{{ d.power_on_hours | num }}</dd></div>
+      <div><dt>Desgaste</dt><dd>{{ (d.wear_percent ~ ' %') if d.wear_percent is number else '—' }}</dd></div>
+      <div><dt>Reasign.</dt><dd>{{ d.reallocated_sectors | num }}</dd></div>
+    </dl>
+    {% if d.summary %}<p class="small">{{ d.summary }}</p>{% endif %}
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+  {{ empty('Sin información de discos') }}
+{% endif %}

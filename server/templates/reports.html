@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Reportes{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Reportes</h1></div>
+
+<form class="card filters" method="get" action="/reportes"
+      hx-get="/reportes" hx-target="#results" hx-push-url="true"
+      hx-trigger="input changed delay:300ms from:input[name=q], change, submit">
+  <label class="field grow">
+    <span>Buscar</span>
+    <input type="search" name="q" value="{{ filters.q }}" placeholder="Cliente, equipo, serie, usuario, modelo o técnico" autocomplete="off">
+  </label>
+  <label class="field">
+    <span>Estado de discos</span>
+    <select name="disk_status">
+      <option value="">Todos</option>
+      {% for key in ['CRITICAL', 'WARNING', 'OK', 'UNKNOWN'] %}
+        <option value="{{ key }}" {% if filters.disk_status == key %}selected{% endif %}>{{ key | status_label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label class="field">
+    <span>Desde</span>
+    <input type="date" name="date_from" value="{{ filters.date_from }}">
+  </label>
+  <label class="field">
+    <span>Hasta</span>
+    <input type="date" name="date_to" value="{{ filters.date_to }}">
+  </label>
+  <div class="filter-actions">
+    <noscript><button class="btn btn-primary" type="submit">Filtrar</button></noscript>
+    <a class="btn btn-ghost" href="/reportes">Limpiar</a>
+  </div>
+</form>
+
+<section id="results" class="card">
+  {% include "partials/report_table.html" %}
+</section>
+{% endblock %}
