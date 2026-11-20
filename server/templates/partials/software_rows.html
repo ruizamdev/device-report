@@ -1,0 +1,5 @@
+{% for p in software %}
+<tr><td>{{ p.name or '—' }}</td><td class="mono small">{{ p.version or '—' }}</td><td class="muted">{{ p.publisher or '—' }}</td></tr>
+{% else %}
+<tr><td colspan="3" class="muted center">{{ 'Ningún programa coincide con “' ~ sw_q ~ '”.' if sw_q else 'Sin programas registrados.' }}</td></tr>
+{% endfor %}

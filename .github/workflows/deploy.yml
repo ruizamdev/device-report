@@ -150,7 +150,7 @@ jobs:
       - name: Copiar compose y script
         run: |
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
-            deploy/docker-compose.yml deploy/deploy.sh "$VPS_USER@$VPS_HOST:$APP_DIR/"
+            deploy/docker-compose.yml deploy/deploy.sh deploy/set-admin-password.sh "$VPS_USER@$VPS_HOST:$APP_DIR/"
 
       - name: Desplegar
         env:
@@ -159,7 +159,7 @@ jobs:
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$VPS_USER@$VPS_HOST" \
             "set -e; trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
              docker login ghcr.io -u '${{ github.actor }}' --password-stdin >/dev/null
-             chmod +x '$APP_DIR/deploy.sh'
+             chmod +x '$APP_DIR/deploy.sh' '$APP_DIR/set-admin-password.sh'
              IMAGE_TAG='$IMAGE_TAG' '$APP_DIR/deploy.sh'" <<< "$GHCR_TOKEN"
 
       - name: Verificar salud pública

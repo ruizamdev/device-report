@@ -1,0 +1,168 @@
+{% from "_macros.html" import badge, kv, empty, dash %}
+<nav class="tabs" role="tablist" aria-label="Secciones del reporte">
+  {% for key, label in tabs %}
+    <a role="tab" href="/reportes/{{ r.id }}?tab={{ key }}"
+       hx-get="/reportes/{{ r.id }}?tab={{ key }}" hx-target="#tab-content" hx-push-url="true"
+       {% if tab == key %}aria-selected="true" class="active"{% else %}aria-selected="false"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>
+<div class="tab-body" role="tabpanel">
+{% if needs_full %}
+  {{ empty('Sección no disponible', 'Los reportes de clientes anteriores a la 2.1 no incluyen este detalle. Revisa la pestaña “Reporte original”.') }}
+
+{% elif tab == 'resumen' %}
+  {% set hw = full.hardware or {} %}
+  {% set os = full.user_os or {} %}
+  <div class="grid-2">
+    <dl class="kvs">
+      <h3>Equipo</h3>
+      {{ kv('Fabricante', r.manufacturer) }}
+      {{ kv('Modelo', r.model) }}
+      <div class="kv"><dt>Número de serie</dt><dd class="mono">{% if r.serial_number %}<a href="/equipos/{{ r.serial_number | urlpath }}">{{ r.serial_number }}</a>{% else %}—{% endif %}</dd></div>
+      {{ kv('Procesador', r.cpu) }}
+      {{ kv('Memoria RAM', (r.ram_gb | num(1)) ~ ' GB' if r.ram_gb else None) }}
+      {{ kv('Sistema operativo', r.os_name) }}
+      {% if os.uptime %}{{ kv('Tiempo encendido', os.uptime) }}{% endif %}
+    </dl>
+    <dl class="kvs">
+      <h3>Reporte</h3>
+      {{ kv('Cliente', r.client_name) }}
+      {{ kv('Técnico', r.technician) }}
+      {{ kv('Equipo / usuario', (r.hostname or '—') ~ ' / ' ~ (r.username or '—')) }}
+      {{ kv('Recolectado', r.collected_at | dt) }}
+      {{ kv('Recibido', r.created_at | dt) }}
+      {{ kv('Archivo', r.zip_filename ~ ' (' ~ (r.zip_size_bytes | bytes) ~ ')') }}
+      {% if full.app_version %}{{ kv('Versión del cliente', full.app_version) }}{% endif %}
+    </dl>
+  </div>
+  <h3 class="mt">Discos</h3>
+  {% include "partials/disk_cards.html" %}
+
+{% elif tab == 'discos' %}
+  {% include "partials/disk_cards.html" %}
+  {% if disks %}
+  <div class="table-wrap mt">
+  <table class="table">
+    <thead><tr><th>Estado</th><th>Modelo</th><th>Serie</th><th>Protocolo</th><th class="num">Capacidad</th><th class="num">Temp.</th><th class="num">Horas</th><th class="num">Desgaste</th><th class="num">Reasignados</th><th class="num">Pendientes</th><th>Fuente</th></tr></thead>
+    <tbody>
+    {% for d in disks %}
+      <tr>
+        <td>{{ badge(d.status) }}</td><td>{{ dash(d.model) }}</td><td class="mono">{{ dash(d.serial) }}</td><td>{{ dash(d.protocol) }}</td>
+        <td class="num">{{ d.capacity_gb | num(0) }} GB</td>
+        <td class="num">{{ (d.temperature_c ~ ' °C') if d.temperature_c is number else '—' }}</td>
+        <td class="num">{{ d.power_on_hours | num }}</td>
+        <td class="num">{{ (d.wear_percent ~ ' %') if d.wear_percent is number else '—' }}</td>
+        <td class="num">{{ d.reallocated_sectors | num }}</td>
+        <td class="num">{{ d.pending_sectors | num }}</td>
+        <td class="muted">{{ dash(d.source) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% endif %}
+
+{% elif tab == 'hardware' %}
+  {% set hw = full.hardware or {} %}
+  <div class="grid-2">
+    <dl class="kvs">
+      <h3>Sistema</h3>
+      {{ kv('Fabricante', hw.manufacturer) }}
+      {{ kv('Modelo', hw.model) }}
+      {{ kv('Número de serie', hw.serial_number) }}
+      {{ kv('Placa base', hw.motherboard) }}
+      {{ kv('BIOS', hw.bios_version) }}
+    </dl>
+    <dl class="kvs">
+      <h3>Procesador y gráficos</h3>
+      {{ kv('CPU', hw.cpu_name) }}
+      {{ kv('Núcleos / hilos', (hw.cpu_cores ~ ' / ' ~ hw.cpu_logical_processors) if hw.cpu_cores else None) }}
+      {{ kv('RAM total', (hw.total_ram_gb | num(1)) ~ ' GB' if hw.total_ram_gb else None) }}
+      {{ kv('GPU', (hw.gpus or []) | join(', ')) }}
+    </dl>
+  </div>
+  <h3 class="mt">Módulos de memoria</h3>
+  {% if hw.ram_modules %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Ranura</th><th class="num">Capacidad</th><th class="num">Velocidad</th><th>Fabricante</th><th>Nº de parte</th></tr></thead>
+    <tbody>{% for m in hw.ram_modules %}<tr><td>{{ dash(m.slot) }}</td><td class="num">{{ m.capacity_gb | num(0) }} GB</td><td class="num">{{ m.speed_mhz | num }} MHz</td><td>{{ dash(m.manufacturer) }}</td><td class="mono">{{ dash(m.part_number) }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="muted">Sin información de módulos.</p>{% endif %}
+  <h3 class="mt">Volúmenes</h3>
+  {% if hw.volumes %}
+  <div class="volumes">
+    {% for v in hw.volumes %}
+      {% set used = ((v.total_gb or 0) - (v.free_gb or 0)) %}
+      {% set pct = (used / v.total_gb * 100) if v.total_gb else 0 %}
+      <div class="volume">
+        <div class="volume-head"><strong>{{ v.drive_letter }}</strong> <span class="muted">{{ v.label or 'Sin etiqueta' }} · {{ v.file_system }}</span></div>
+        <svg class="meter" viewBox="0 0 100 8" preserveAspectRatio="none" role="img" aria-label="{{ pct | round | int }} % usado">
+          <rect class="meter-track" x="0" y="0" width="100" height="8" rx="4"/>
+          <rect class="{{ 'fill-critical' if pct >= 90 else ('fill-warning' if pct >= 75 else 'fill-accent') }}" x="0" y="0" width="{{ pct | round(2) }}" height="8" rx="4"/>
+        </svg>
+        <div class="muted small">{{ v.free_gb | num(1) }} GB libres de {{ v.total_gb | num(1) }} GB ({{ pct | round | int }} % usado)</div>
+      </div>
+    {% endfor %}
+  </div>
+  {% else %}<p class="muted">Sin volúmenes.</p>{% endif %}
+
+{% elif tab == 'sistema' %}
+  {% set os = full.user_os or {} %}
+  {% set sw = full.software or {} %}
+  <div class="grid-2">
+    <dl class="kvs">
+      <h3>Sistema operativo</h3>
+      {{ kv('Nombre', os.os_name) }}
+      {{ kv('Versión', os.os_version) }}
+      {{ kv('Build', os.os_build) }}
+      {{ kv('Arquitectura', os.architecture) }}
+      {{ kv('Dominio / grupo de trabajo', os.domain_or_workgroup) }}
+    </dl>
+    <dl class="kvs">
+      <h3>Estado</h3>
+      {{ kv('Tiempo encendido', os.uptime) }}
+      {{ kv('Último arranque', os.last_boot_time | dt if os.last_boot_time else None) }}
+      {{ kv('Servicios en ejecución', sw.running_services_count) }}
+      {{ kv('Procesos activos', sw.active_processes_count) }}
+    </dl>
+  </div>
+  {% if sw.recent_updates %}
+  <h3 class="mt">Actualizaciones recientes</h3>
+  <ul class="plain">{% for u in sw.recent_updates %}<li class="mono small">{{ u }}</li>{% endfor %}</ul>
+  {% endif %}
+
+{% elif tab == 'red' %}
+  {% set net = full.network or {} %}
+  {% if net.adapters %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Adaptador</th><th>Direcciones IP</th><th>MAC</th><th>Puerta de enlace</th><th>DNS</th></tr></thead>
+    <tbody>{% for a in net.adapters %}<tr><td>{{ dash(a.name) }}</td><td class="mono small">{{ dash(a.ip_addresses) }}</td><td class="mono small">{{ dash(a.mac_address) }}</td><td class="mono small">{{ dash(a.gateways) }}</td><td class="mono small">{{ dash(a.dns_servers) }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}{{ empty('Sin adaptadores de red') }}{% endif %}
+  {% if net.wifi_profiles %}
+  <h3 class="mt">Perfiles Wi-Fi guardados ({{ net.wifi_profiles | length }})</h3>
+  <ul class="chips">{% for w in net.wifi_profiles %}<li>{{ w }}</li>{% endfor %}</ul>
+  {% endif %}
+
+{% elif tab == 'software' %}
+  <div class="card-head">
+    <p class="muted">{{ software | length }} programas instalados</p>
+    <label class="field inline">
+      <span class="sr-only">Filtrar programas</span>
+      <input type="search" name="q" placeholder="Filtrar por nombre, editor o versión" autocomplete="off"
+             hx-get="/reportes/{{ r.id }}/software" hx-trigger="input changed delay:200ms, search" hx-target="#sw-rows">
+    </label>
+  </div>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Nombre</th><th>Versión</th><th>Editor</th></tr></thead>
+    <tbody id="sw-rows">{% include "partials/software_rows.html" %}</tbody>
+  </table></div>
+
+{% elif tab == 'original' %}
+  <div class="card-head">
+    <p class="muted">Reporte HTML tal como lo generó el equipo. Se muestra aislado: no ejecuta scripts ni carga recursos externos.</p>
+    <a class="btn btn-sm" href="/api/v1/reports/{{ r.id }}/html" target="_blank" rel="noopener">Abrir en otra pestaña</a>
+  </div>
+  <iframe class="original" src="/api/v1/reports/{{ r.id }}/html" sandbox="" referrerpolicy="no-referrer" title="Reporte original"></iframe>
+{% endif %}
+</div>

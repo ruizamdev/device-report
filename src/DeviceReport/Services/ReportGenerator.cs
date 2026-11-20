@@ -11,6 +11,12 @@ namespace DeviceReport.Services;
 
 public static class ReportGenerator
 {
+    private static readonly JsonSerializerOptions FullReportJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        WriteIndented = false
+    };
+
     public static (string ZipPath, string HtmlPath, SummaryMetadata Metadata) GenerateAndZip(DeviceReportData data)
     {
         string safeClient = Regex.Replace(data.ClientName.Trim(), @"[^A-Za-z0-9_-]", "_");
@@ -41,6 +47,10 @@ public static class ReportGenerator
 
         string jsonPath = Path.Combine(workDir, "summary.json");
         File.WriteAllText(jsonPath, JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true }), Encoding.UTF8);
+
+        // Reporte completo en JSON (snake_case) para que el panel web pueda mostrar todo el detalle.
+        string fullJsonPath = Path.Combine(workDir, "report.json");
+        File.WriteAllText(fullJsonPath, JsonSerializer.Serialize(data, FullReportJsonOptions), new UTF8Encoding(false));
 
         string txtPath = Path.Combine(workDir, "reporte.txt");
         File.WriteAllText(txtPath, BuildTextReport(data), Encoding.UTF8);

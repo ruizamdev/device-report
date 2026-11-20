@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, empty %}
+{% block title %}Equipo {{ serial }}{% endblock %}
+{% block content %}
+<nav class="crumbs"><a href="/reportes">Reportes</a> / <span>Equipo</span></nav>
+<div class="page-head">
+  <div>
+    <h1>{{ ((latest.manufacturer or '') ~ ' ' ~ (latest.model or '')).strip() or 'Equipo' }} <span class="mono muted h1-sub">{{ serial }}</span></h1>
+    <p class="muted">{{ history | length }} reporte{{ '' if history | length == 1 else 's' }} · Último cliente: {{ latest.client_name or '—' }} · Equipo: {{ latest.hostname or '—' }}</p>
+  </div>
+  <a class="btn" href="/reportes?q={{ serial | urlencode }}">Ver en el listado</a>
+</div>
+
+<section class="card">
+  <h2>Evolución de discos</h2>
+  {% if history | length < 2 %}
+    <p class="muted">Con un solo reporte todavía no hay tendencia; aquí verás la evolución cuando el equipo vuelva a diagnosticarse.</p>
+  {% endif %}
+  {% for t in trends %}
+  <article class="trend">
+    <header class="trend-head">
+      <div><strong>{{ t.model }}</strong> <span class="muted small">{% if t.capacity_gb %}{{ t.capacity_gb | num(0) }} GB{% endif %}{% if t.serial %} · <span class="mono">{{ t.serial }}</span>{% endif %}</span></div>
+      <div class="status-dots" aria-label="Estado en cada reporte">
+        {% for s in t.statuses %}<i class="dot dot-{{ (s or 'UNKNOWN') | status_class }}" title="{{ dates[loop.index0] }}: {{ (s or 'UNKNOWN') | status_label }}"></i>{% endfor %}
+        {{ badge(t.last_status) }}
+      </div>
+    </header>
+    {% if t.metrics %}
+    <div class="metrics">
+      {% for m in t.metrics %}
+      <div class="metric">
+        <div class="metric-head">
+          <span class="muted small">{{ m.label }}</span>
+          <span><strong>{{ m.last | num }}{{ ' ' ~ m.unit if m.unit }}</strong>
+            {% if history | length > 1 and m.delta %}<span class="small {{ 'text-warning' if m.delta > 0 and m.label != 'Horas encendido' else 'muted' }}">{{ '+' if m.delta > 0 }}{{ m.delta | num }}</span>{% endif %}
+          </span>
+        </div>
+        {% if m.spark.points %}
+        <svg class="spark" viewBox="0 0 {{ m.spark.width }} {{ m.spark.height }}" preserveAspectRatio="none" role="img" aria-label="{{ m.label }}: de {{ m.first | num }} a {{ m.last | num }}">
+          <polyline points="{{ m.spark.points }}"/>
+          {% for p in m.spark.dots %}<circle cx="{{ p.x }}" cy="{{ p.y }}" r="2.5"><title>{{ p.v | num }}{{ ' ' ~ m.unit if m.unit }}</title></circle>{% endfor %}
+        </svg>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}<p class="muted small">Sin métricas S.M.A.R.T. para este disco.</p>{% endif %}
+  </article>
+  {% else %}
+    {{ empty('Sin información de discos') }}
+  {% endfor %}
+</section>
+
+<section class="card">
+  <h2>Reportes de este equipo</h2>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Estado</th><th>Recibido</th><th>Cliente</th><th>Equipo</th><th>Discos</th></tr></thead>
+    <tbody>
+    {% for h in history %}
+      <tr>
+        <td>{{ badge(h.disk_overall_status) }}</td>
+        <td class="nowrap"><a href="/reportes/{{ h.id }}">{{ h.created_at | dt }}</a></td>
+        <td>{{ h.client_name }}</td>
+        <td>{{ h.hostname or '—' }}</td>
+        <td class="muted small">{{ h.disks | map(attribute='model') | select | join(', ') or '—' }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+</section>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge %}
+{% block title %}{{ r.client_name }} · {{ r.hostname or 'Reporte' }}{% endblock %}
+{% block content %}
+<nav class="crumbs"><a href="/reportes">Reportes</a> / <span>{{ r.client_name }}</span></nav>
+<div class="page-head report-head">
+  <div>
+    <h1>{{ r.client_name }} {{ badge(r.disk_overall_status) }}</h1>
+    <p class="muted">
+      {{ r.hostname or 'Equipo sin nombre' }}{% if r.username %} · {{ r.username }}{% endif %}
+      · Recibido {{ r.created_at | dt }}{% if r.technician %} · Técnico: {{ r.technician }}{% endif %}
+    </p>
+  </div>
+  <div class="actions">
+    {% if r.serial_number %}
+      <a class="btn" href="/equipos/{{ r.serial_number | urlpath }}">Historial del equipo{% if history_count > 1 %} ({{ history_count }}){% endif %}</a>
+    {% endif %}
+    <a class="btn btn-primary" href="/api/v1/reports/{{ r.id }}/download">Descargar ZIP</a>
+  </div>
+</div>
+
+{% if r.notes %}<div class="card notes"><strong>Notas del técnico:</strong> {{ r.notes }}</div>{% endif %}
+{% if not r.has_full_report %}
+  <div class="alert alert-info">Este reporte lo generó un cliente anterior a la versión 2.1, así que solo hay resumen, discos y el reporte original en HTML.</div>
+{% endif %}
+
+<section id="tab-content" class="card tabs-card">
+  {% include "partials/report_tab.html" %}
+</section>
+{% endblock %}

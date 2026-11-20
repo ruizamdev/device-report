@@ -46,7 +46,7 @@ public sealed class MainForm : Form
     {
         _config = AppConfig.Load(out string? cfgWarning);
 
-        Text = "Device Report v2.0 — Siscom";
+        Text = $"Device Report v{typeof(MainForm).Assembly.GetName().Version?.ToString(3)} — Siscom";
         ClientSize = new Size(760, 650);
         MinimumSize = new Size(700, 580);
         StartPosition = FormStartPosition.CenterScreen;

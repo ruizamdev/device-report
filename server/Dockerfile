@@ -13,7 +13,9 @@ RUN useradd --system --uid 10001 --home-dir /app app \
     && mkdir -p /data \
     && chown app:app /data
 
-COPY app.py .
+COPY app.py core.py web.py ./
+COPY templates templates
+COPY static static
 
 USER app
 EXPOSE 8000

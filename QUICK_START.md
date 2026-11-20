@@ -1,163 +1,70 @@
-# 🚀 Guía de Inicio Rápido
+# Guía de inicio rápido
 
-Esta guía te ayudará a configurar y ejecutar **Device Report** en menos de 5 minutos.
+Device Report tiene dos partes:
 
-## 📋 Antes de Comenzar
+1. **`DeviceReport.exe`**: se ejecuta en el equipo del cliente, recoge el diagnóstico y lo sube al servidor.
+2. **Panel web**: consulta los reportes recibidos en <https://reportes.sismanager.cloud>.
 
-Asegúrate de tener:
-- ✅ Windows 10/11 o Windows Server 2016+
-- ✅ PowerShell 5.1 o superior
-- ✅ Permisos de administrador (recomendado)
+## 1. Preparar el ejecutable
 
-## ⚡ Configuración Rápida
+**Requisitos del equipo:** Windows 10/11 de 64 bits. No hace falta instalar .NET, porque el ejecutable lo incluye.
 
-### Paso 1: Configurar el archivo de configuración
+1. Descarga `DeviceReport.exe` y `config.example.json` del
+   [último release](https://github.com/ruizamdev/device-report/releases/latest).
+2. Junto al `.exe`, crea un `config.json` a partir de `config.example.json` y pon el token de subida en `ApiToken`:
 
-1. **Copia el archivo de ejemplo**:
-   ```powershell
-   Copy-Item config.example.json config.json
-   ```
-
-2. **Edita `config.json`** con un editor de texto:
-
-   **Configuración MÍNIMA requerida**:
    ```json
    {
-     "WorkshopNetwork": {
-       "DetectionIP": "192.168.1.85"  // ← IP de tu servidor del taller
+     "VpsApi": {
+       "EndpointUrl": "https://reportes.sismanager.cloud/api/v1/reports",
+       "ApiToken": "TOKEN_DE_SUBIDA",
+       "TimeoutSeconds": 60
      },
-     "NetworkShare": {
-       "Path": "\\\\192.168.1.85\\reportes",  // ← Ruta del recurso compartido
-       "Username": "TU_USUARIO",              // ← Usuario del recurso compartido
-       "Password": "TU_CONTRASEÑA"            // ← Contraseña
-     }
+     "SmartCtl": { "AutoDownload": true, "ExecutablePath": "tools\\smartctl.exe" },
+     "DataCollection": { "Hardware": true, "DiskHealth": true, "User": true, "Software": true, "Network": true }
    }
    ```
 
-   **Para OneDrive** (opcional, solo si no estás en el taller):
-   - Sigue la guía completa en [AZURE_SETUP.md](AZURE_SETUP.md)
-   - Obtén tu Client ID y Client Secret
-   - Actualiza la sección `OneDrive` en `config.json`
+   Pide el token al administrador. Está en el `.env` del servidor y **no** se guarda en git.
+   Si compilas tú mismo con un `config.json` en la raíz del repo, queda incrustado en el `.exe`.
+   Un `config.json` junto al ejecutable siempre tiene prioridad.
+3. Copia la carpeta (`DeviceReport.exe` + `config.json`) a la memoria USB del taller.
 
-### Paso 2: Permitir la ejecución de scripts
+## 2. Generar un reporte
 
-Abre PowerShell **como Administrador** y ejecuta:
+1. Ejecuta `DeviceReport.exe` en el equipo del cliente y acepta el aviso de UAC: necesita privilegios para leer S.M.A.R.T.
+2. Escribe el **Cliente** (obligatorio) y, si quieres, el técnico y las notas de la falla.
+3. Elige qué recolectar y pulsa **Generar y Enviar Reporte**.
+4. Al terminar verás el estado global de los discos (OK / Advertencia / Crítico). El ZIP queda en
+   `%TEMP%\DeviceReports` y se sube al servidor. Si no hay internet, usa **Reintentar Envío** cuando vuelva la conexión.
 
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy Bypass
+La primera vez, si no encuentra `smartctl.exe`, lo descarga de smartmontools (`SmartCtl.AutoDownload`).
+Sin él, usa un diagnóstico de respaldo por WMI con menos detalle.
+
+## 3. Consultar los reportes
+
+Entra a <https://reportes.sismanager.cloud> con el usuario del panel:
+
+- **Inicio**: estado general y alertas recientes.
+- **Reportes**: busca por cliente, equipo, número de serie, usuario, modelo o técnico, y filtra por estado y fechas.
+- **Detalle**: hardware, discos, sistema, red y software del equipo, además del reporte original y el ZIP.
+- **Historial del equipo**: cómo evolucionaron sus discos entre visitas.
+
+Para crear o cambiar el usuario del panel (en el VPS):
+
+```bash
+ssh -t deploy@<vps> /srv/apps/device-reports/set-admin-password.sh admin
 ```
 
-### Paso 3: Ejecutar el script
+## Problemas comunes
 
-```powershell
-.\DeviceReport.ps1
-```
+| Síntoma | Qué revisar |
+| --- | --- |
+| "ApiToken no configurado en config.json" | Falta `config.json` junto al `.exe` o el token sigue con el valor de ejemplo. |
+| `HTTP 401` al enviar | El token no coincide con el `API_TOKEN` del servidor (staging y producción usan tokens distintos). |
+| `HTTP 413` al enviar | El ZIP supera `MAX_UPLOAD_MB` (50 MB por defecto). |
+| Discos en "Sin datos" | El `.exe` no se ejecutó como administrador o el disco no expone S.M.A.R.T. (p. ej. algunas controladoras RAID/USB). |
+| El panel dice "no está configurado" | Falta el usuario del panel: ejecuta `set-admin-password.sh` en el VPS. |
+| En el detalle solo aparecen Resumen y Discos | El reporte se generó con un cliente anterior a 2.1. Usa la pestaña "Reporte original". |
 
-O con el nombre del cliente directamente:
-
-```powershell
-.\DeviceReport.ps1 -ClientName "Juan Perez"
-```
-
-## 🎯 ¿Qué hace el script?
-
-1. ✅ Te pide el nombre del cliente (si no lo proporcionaste)
-2. ✅ Detecta si estás en la red del taller (ping a 192.168.1.85)
-3. ✅ Recopila información del equipo:
-   - Hardware (CPU, RAM, discos, BIOS)
-   - Usuario y sistema operativo
-   - Software instalado
-   - Servicios y procesos
-   - Configuración de red completa
-4. ✅ Genera reportes en HTML, XML y TXT
-5. ✅ Comprime los reportes en un ZIP
-6. ✅ Envía automáticamente:
-   - **En el taller**: Al recurso compartido `\\192.168.1.85\reportes\[Cliente]\`
-   - **Fuera del taller**: A OneDrive (si está configurado)
-
-## 📁 ¿Dónde se guardan los reportes?
-
-### En el taller (red local)
-```
-\\192.168.1.85\reportes\
-└── [Nombre del Cliente]/
-    └── [Cliente]_[Usuario]-[Equipo]_[Timestamp].zip
-```
-
-### Fuera del taller (OneDrive)
-```
-OneDrive/
-└── DeviceReports/
-    └── [Nombre del Cliente]/
-        └── [Cliente]_[Usuario]-[Equipo]_[Timestamp].zip
-```
-
-## 🔧 Compilar a Ejecutable (Opcional)
-
-Si quieres distribuir el programa como un .exe:
-
-1. **Instalar ps2exe**:
-   ```powershell
-   Install-Module -Name ps2exe -Scope CurrentUser
-   ```
-
-2. **Compilar**:
-   ```powershell
-   .\Build-Executable.ps1
-   ```
-
-3. **Distribuir**: Comparte la carpeta `dist/` que contiene:
-   - `DeviceReport.exe`
-   - `config.json`
-   - `modules/`
-
-## ❓ Problemas Comunes
-
-### "No se puede ejecutar scripts en este sistema"
-
-**Solución**:
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy Bypass
-```
-
-### "No se pudo conectar al recurso compartido"
-
-**Causas comunes**:
-- ❌ IP incorrecta en `config.json`
-- ❌ Credenciales incorrectas
-- ❌ El servidor no está encendido
-- ❌ Firewall bloqueando la conexión
-
-**Solución**: Verifica manualmente:
-```powershell
-Test-Connection 192.168.1.85
-```
-
-### "Error al enviar a OneDrive"
-
-**Causas comunes**:
-- ❌ Client ID o Client Secret no configurados
-- ❌ Permisos no otorgados en Azure AD
-
-**Solución**: Sigue [AZURE_SETUP.md](AZURE_SETUP.md) paso a paso
-
-### Falta información en los reportes
-
-**Solución**: Ejecuta PowerShell **como Administrador**
-
-## 📞 Necesitas Ayuda?
-
-1. 📖 Lee la documentación completa: [README.md](README.md)
-2. 🔧 Configuración de OneDrive: [AZURE_SETUP.md](AZURE_SETUP.md)
-3. 📝 Historial de cambios: [CHANGELOG.md](CHANGELOG.md)
-
-## 🎉 ¡Listo!
-
-Ahora tienes **Device Report** funcionando. Cada vez que lo ejecutes:
-- Recopilará información completa del equipo
-- Generará reportes profesionales
-- Los enviará automáticamente al lugar correcto
-
----
-
-**Device Report v1.0** - Simplificando la recolección de información para soporte técnico IT
+Para desarrollo, compilación y despliegue, consulta el [README](README.md).

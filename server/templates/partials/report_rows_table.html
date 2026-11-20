@@ -1,0 +1,21 @@
+{% from "_macros.html" import badge %}
+<div class="table-wrap">
+<table class="table">
+  <thead>
+    <tr><th>Estado</th><th>Cliente</th><th>Equipo</th><th class="hide-sm">Modelo</th><th class="hide-sm">Serie</th><th class="hide-md">Técnico</th><th>Recibido</th></tr>
+  </thead>
+  <tbody>
+  {% for r in items %}
+    <tr class="row-link">
+      <td>{{ badge(r.disk_overall_status) }}</td>
+      <td><a href="/reportes/{{ r.id }}"><strong>{{ r.client_name }}</strong></a></td>
+      <td>{{ r.hostname or '—' }}{% if r.username %}<div class="muted small">{{ r.username }}</div>{% endif %}</td>
+      <td class="hide-sm">{{ ((r.manufacturer or '') ~ ' ' ~ (r.model or '')).strip() or '—' }}</td>
+      <td class="hide-sm mono">{% if r.serial_number %}<a href="/equipos/{{ r.serial_number | urlpath }}">{{ r.serial_number }}</a>{% else %}—{% endif %}</td>
+      <td class="hide-md">{{ r.technician or '—' }}</td>
+      <td class="nowrap" title="{{ r.created_at | dt }}">{{ r.created_at | dt('%d/%m/%Y') }}<div class="muted small">{{ r.created_at | dt('%H:%M') }}</div></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
