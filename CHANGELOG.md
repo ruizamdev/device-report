@@ -1,86 +1,65 @@
 # Changelog
 
-Todos los cambios notables en este proyecto serán documentados en este archivo.
+Todos los cambios notables de este proyecto se documentan en este archivo.
 
-El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
-y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
+El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/)
+y el proyecto sigue [Semantic Versioning](https://semver.org/lang/es/).
+Las versiones del servidor (API + panel) y del cliente Windows se publican juntas con una etiqueta `vX.Y.Z`.
 
-## [1.0.0] - 2025-01-24
+## [2.2.0] - 2026-11-20
 
 ### Añadido
 
-- ✨ Primera versión del proyecto Device Report
-- 📊 Recolección de información de hardware (CPU, RAM, discos, BIOS, placa base, tarjeta de video)
-- 👤 Recolección de información de usuario y sistema operativo
-- 💾 Recolección de software instalado, actualizaciones, servicios y procesos
-- 🌐 Recolección de información de red completa (adaptadores, IP, rutas, WiFi)
-- 📄 Generación de reportes en múltiples formatos (HTML, XML, TXT)
-- 🗜️ Compresión automática de reportes en ZIP
-- 🔍 Detección automática de red del taller mediante ping
-- 📤 Envío automático a recurso compartido de red (en taller)
-- ☁️ Envío automático a OneDrive vía Microsoft Graph API (fuera del taller)
-- 🧩 Arquitectura modular con funciones separadas
-- 📝 Documentación completa (README, AZURE_SETUP)
-- ⚙️ Archivo de configuración JSON editable
-- 🔨 Script de compilación a ejecutable (.exe)
-- 🎨 Interfaz de consola con colores y diseño profesional
-- 📋 Reportes HTML con diseño responsive y profesional
+- **Panel web** para consultar los reportes (`server/web.py`, Jinja2 + HTMX):
+  - Inicio con totales, semáforo de salud de discos, reportes por mes, alertas recientes y clientes principales.
+  - Listado con búsqueda (cliente, equipo, serie, usuario, modelo, técnico), filtro por estado de discos y por fechas, y paginación.
+  - Detalle del reporte en pestañas: Resumen, Discos, Hardware, Sistema, Red, Software (con filtro) y Reporte original
+    (el `reporte.html` del ZIP en un iframe aislado), con descarga del ZIP.
+  - Historial por equipo (`/equipos/<serie>`) con la evolución de temperatura, desgaste, sectores y horas de cada disco.
+  - Modo claro/oscuro y diseño adaptable a móvil.
+- Cabeceras de seguridad en el panel: CSP estricta (sin scripts ni estilos en línea), `X-Frame-Options: DENY`, `no-store`.
 
-### Características Técnicas
+### Cambiado
 
-- PowerShell 5.1+ compatible
-- Sin dependencias externas (solo comandos nativos de Windows)
-- Soporte para autenticación en recursos compartidos de red
-- Integración con Microsoft Graph API v1.0
-- Manejo de errores robusto
-- Logs informativos en tiempo real
+- Backend reorganizado en `core.py` (configuración, autenticación, base de datos y consultas), `app.py` (API) y `web.py` (panel).
+- El título de la ventana del cliente muestra la versión real del ejecutable.
 
-### Documentación
+## [2.1.0] - 2026-11-20
 
-- README.md con instrucciones completas
-- AZURE_SETUP.md con guía paso a paso para configurar Azure AD
-- Comentarios de ayuda en todos los módulos
-- Ejemplos de uso
-- Archivo de configuración de ejemplo (config.example.json)
+### Añadido
 
-### Módulos Incluidos
+- **Inicio de sesión** del panel con usuario y contraseña (hash scrypt, cookie `HttpOnly` + `SameSite=Strict`
+  firmada, bloqueo tras 5 intentos fallidos por IP). Cambiar la contraseña invalida las sesiones abiertas.
+- `deploy/set-admin-password.sh` para fijar el usuario del panel en el VPS sin escribir la contraseña en disco.
+- El cliente incluye `report.json` (todos los datos recolectados, `schema_version` 1) dentro del ZIP;
+  el servidor lo indexa al recibirlo.
+- Endpoints: `/api/v1/auth/*`, `/api/v1/reports/{id}/html`, `/api/v1/devices/{serial}/reports`, `/api/v1/stats`;
+  filtros `q`, `serial`, `date_from` y `date_to` en el listado.
 
-1. `Test-WorkshopNetwork.ps1` - Detección de red del taller
-2. `Get-HardwareInfo.ps1` - Recolección de hardware
-3. `Get-UserInfo.ps1` - Recolección de usuario
-4. `Get-SoftwareInfo.ps1` - Recolección de software
-5. `Get-NetworkInfo.ps1` - Recolección de red
-6. `New-Reports.ps1` - Generación de reportes
-7. `Compress-Reports.ps1` - Compresión de reportes
-8. `Send-ToNetworkShare.ps1` - Envío a recurso compartido
-9. `Send-ToOneDrive.ps1` - Envío a OneDrive
+### Cambiado
 
----
+- **Incompatible:** el token Bearer que lleva `DeviceReport.exe` ahora **solo permite subir** reportes.
+  La lectura requiere sesión.
+- Migración automática de la base de datos (columna `full_json`); los reportes anteriores siguen disponibles
+  con su resumen, discos y HTML original.
 
-## [Unreleased]
+## [2.0.0] - 2026-11-20
 
-### Planeado
+### Añadido
 
-- [ ] Soporte para múltiples idiomas (ES/EN)
-- [ ] Interfaz gráfica (GUI) opcional
-- [ ] Reportes en formato PDF
-- [ ] Integración con otras plataformas cloud (Google Drive, Dropbox)
-- [ ] Programación de ejecuciones automáticas
-- [ ] Panel web para visualización de reportes
-- [ ] Comparación de reportes históricos
-- [ ] Alertas automáticas por cambios significativos
-- [ ] Soporte para Device Code Flow (cuentas personales OneDrive)
-- [ ] Firma digital del ejecutable
-- [ ] Auto-actualización del ejecutable
+- Cliente de escritorio en **C# (.NET 8 WinForms)**, ejecutable único autocontenido con elevación UAC.
+- Diagnóstico de salud de discos **S.M.A.R.T.** con `smartctl` (descarga automática opcional) y respaldo por WMI;
+  semáforo OK / Advertencia / Crítico, notificación y sonido al terminar.
+- **API propia** (FastAPI + SQLite) que recibe los reportes por HTTPS con token Bearer.
+- **CI/CD** con GitHub Actions según las reglas del VPS siscom: tests, imagen en
+  `ghcr.io/ruizamdev/device-report-api`, despliegue a staging (`dev`) y producción (etiqueta `vX.Y.Z`),
+  y release con `DeviceReport.exe`.
 
-### En Consideración
+### Eliminado
 
-- Soporte para Linux y macOS
-- Base de datos local para histórico de reportes
-- Exportación a sistemas de ticketing (ServiceNow, Jira)
-- Notificaciones por email al completar el reporte
-- Modo offline (guardar localmente cuando no hay conexión)
+- Script PowerShell y sus módulos, envío a recurso compartido de red y a OneDrive (`AZURE_SETUP.md`).
 
----
+## [1.0.0] - 2025-01-24
 
-[1.0.0]: https://github.com/artmannmx/device-report/releases/tag/v1.0.0
+Primera versión en PowerShell: recolección de hardware, usuario, software y red; reportes HTML/XML/TXT
+comprimidos en ZIP y enviados a un recurso compartido del taller o a OneDrive.

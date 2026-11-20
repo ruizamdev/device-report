@@ -1,6 +1,8 @@
-# Device Report v2.0 — Siscom
+# Device Report — Siscom
 
 Utilidad gráfica de escritorio para Windows (.NET 8 WinForms) orientada a diagnóstico técnico de equipos en taller, con análisis de salud de discos S.M.A.R.T. (`smartmontools`) y envío centralizado por HTTPS a un backend FastAPI + SQLite en `siscom_vps`.
+
+Guía para técnicos: [QUICK_START.md](QUICK_START.md) · Historial de cambios: [CHANGELOG.md](CHANGELOG.md)
 
 ## Características
 - **GUI nativa en C# (.NET 8 WinForms)** compilada como un único ejecutable autocontenido (`dist/DeviceReport.exe`) con elevación UAC.
@@ -8,6 +10,7 @@ Utilidad gráfica de escritorio para Windows (.NET 8 WinForms) orientada a diagn
 - **Salud de discos (S.M.A.R.T.)**: Integra `smartctl.exe` (`--scan --json` y `-a --json`) con descarga automática opcional y respaldo WMI.
 - **Alertas locales al finalizar**: Semáforo visual (`OK` / `WARNING` / `CRITICAL`), notificación de Windows y sonido del sistema.
 - **Backend centralizado**: API REST en FastAPI + SQLite (`server/`) detrás de Traefik con TLS (`reportes.sismanager.cloud`).
+- **Panel web** para consultar reportes, alertas e historial por equipo (ver abajo).
 
 ## Compilación del cliente Windows
 
