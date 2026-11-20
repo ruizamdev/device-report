@@ -1,0 +1,22 @@
+services:
+  device-reports-api:
+    build: .
+    container_name: device-reports-api
+    restart: unless-stopped
+    environment:
+      - DATA_DIR=/data
+      - API_TOKEN=${API_TOKEN}
+      - MAX_UPLOAD_MB=50
+    volumes:
+      - ./data:/data
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.device-reports.rule=Host(`reportes.sismanager.cloud`)"
+      - "traefik.http.routers.device-reports.entrypoints=websecure"
+      - "traefik.http.services.device-reports.loadbalancer.server.port=8000"
+
+networks:
+  proxy:
+    external: true

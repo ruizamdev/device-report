@@ -1,49 +1,19 @@
-# Archivos de configuración con credenciales sensibles
+# Configuración sensible y binarios
 config.json
-# Pero no ignorar el archivo de ejemplo
-!config.example.json
-
-# Archivos temporales de Windows
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-
-# Carpetas temporales
-temp/
-tmp/
-*.tmp
-
-# Archivos de reporte generados
-*.zip
-*.html
-*.xml
-*.txt
-
-# Logs
-*.log
-
-# PowerShell
-*.ps1xml
-
-# Ejecutables compilados
-*.exe
-*.dll
-
-# Carpeta de distribución
 dist/
+tools/
+*.exe
 
-# Backups
-*.bak
-*.backup
+# Compilación .NET
+bin/
+obj/
+.vs/
 
-# Visual Studio Code
-.vscode/
-
-# JetBrains IDEs
-.idea/
-
-# Archivos de sistema macOS
-.DS_Store
-
-# Node modules (si se usa alguna herramienta de build)
-node_modules/
+# Backend data & Python
+server/data/
+server/.env
+server/__pycache__/
+server/.pytest_cache/
+*.db
+*.zip
+*.log
