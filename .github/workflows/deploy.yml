@@ -1,0 +1,197 @@
+name: CI & Deploy
+
+# Flujo (ver /srv/agents/AGENTS.md §2.1 en el VPS siscom):
+#   PR a dev/main     → tests + build (sin publicar ni desplegar)
+#   push a dev        → tests → imagen → STAGING   (environment `staging`)
+#   tag vX.Y.Z (main) → tests → imagen → PRODUCCIÓN (environment `production`)
+#                       + DeviceReport.exe adjunto a un GitHub Release
+# Excepción documentada en el inventario del VPS: el repo vive en ruizamdev,
+# por lo que las imágenes se publican en ghcr.io/ruizamdev/device-report-api.
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev]
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: device-report-${{ github.event_name == 'pull_request' && github.ref || (startsWith(github.ref, 'refs/tags/v') && 'production' || 'staging') }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  IMAGE: ghcr.io/ruizamdev/device-report-api
+  IMAGE_SOURCE: https://github.com/ruizamdev/device-report
+
+jobs:
+  guard:
+    name: Validar origen del tag
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: El tag de producción debe apuntar a un commit de origin/main
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Tag inválido: $GITHUB_REF_NAME" >&2; exit 1; }
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main \
+            || { echo "El commit $GITHUB_SHA no está en origin/main" >&2; exit 1; }
+
+  test-server:
+    name: Tests backend
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: server/requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - run: python -m pytest -q
+
+  client:
+    name: Build cliente Windows
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: "8.0.x"
+      - name: Publicar ejecutable autocontenido
+        run: |
+          dotnet publish src/DeviceReport/DeviceReport.csproj \
+            -c Release -r win-x64 --self-contained true \
+            -p:PublishSingleFile=true -p:DebugType=None -p:DebugSymbols=false \
+            -p:EnableWindowsTargeting=true \
+            -o dist/
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: DeviceReport-win-x64
+          path: |
+            dist/DeviceReport.exe
+            config.example.json
+          retention-days: 14
+
+  image:
+    name: Imagen API
+    needs: [guard, test-server]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - id: meta
+        run: echo "tag=${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - if: github.event_name != 'pull_request'
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: server
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.meta.outputs.tag }}
+            ${{ env.IMAGE }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ env.IMAGE_SOURCE }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+  deploy:
+    name: Desplegar (${{ startsWith(github.ref, 'refs/tags/v') && 'production' || 'staging' }})
+    if: github.event_name == 'push'
+    needs: [image, client]
+    runs-on: ubuntu-24.04
+    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'production' || 'staging' }}
+    permissions:
+      contents: read
+      packages: read
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      APP_DIR: ${{ vars.APP_DIR }}
+      PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+      IMAGE_TAG: ${{ needs.image.outputs.tag }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Configurar SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          [[ "$APP_DIR" =~ ^/srv/apps/[a-zA-Z0-9._-]+$ ]]
+          [[ "$IMAGE_TAG" =~ ^[0-9a-f]{12}$ ]]
+
+      - name: Copiar compose y script
+        run: |
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            deploy/docker-compose.yml deploy/deploy.sh "$VPS_USER@$VPS_HOST:$APP_DIR/"
+
+      - name: Desplegar
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$VPS_USER@$VPS_HOST" \
+            "set -e; trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+             docker login ghcr.io -u '${{ github.actor }}' --password-stdin >/dev/null
+             chmod +x '$APP_DIR/deploy.sh'
+             IMAGE_TAG='$IMAGE_TAG' '$APP_DIR/deploy.sh'" <<< "$GHCR_TOKEN"
+
+      - name: Verificar salud pública
+        if: env.PUBLIC_URL != ''
+        run: |
+          for i in $(seq 1 12); do
+            curl -fsS --max-time 10 "$PUBLIC_URL/health" && exit 0
+            sleep 5
+          done
+          exit 1
+
+      - if: always()
+        run: rm -f ~/.ssh/deploy_key
+
+  release:
+    name: Release del cliente
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: deploy
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: DeviceReport-win-x64
+          path: release
+      - name: Crear GitHub Release con DeviceReport.exe
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Device Report $GITHUB_REF_NAME" \
+            --generate-notes \
+            release/dist/DeviceReport.exe release/config.example.json
