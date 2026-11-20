@@ -1,0 +1,41 @@
+# Device Report API — VPS siscom (Traefik + GHCR).
+# Vive en el VPS como /srv/apps/<app>/docker-compose.yml; GitHub Actions lo
+# copia en cada despliegue. NO editar en el VPS: editar aquí y hacer push.
+# Los secretos viven solo en /srv/apps/<app>/.env (ver deploy/.env.example).
+# Producción: APP_NAME=device-reports      APP_PREFIX=dreports
+# Staging:    APP_NAME=device-reports-dev  APP_PREFIX=dreports-dev
+name: ${APP_NAME:-device-reports}
+
+services:
+  api:
+    image: ghcr.io/ruizamdev/device-report-api:${IMAGE_TAG:-latest}
+    container_name: ${APP_PREFIX:-dreports}-api
+    restart: unless-stopped
+    environment:
+      DATA_DIR: /data
+      API_TOKEN: ${API_TOKEN:?}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-50}
+      TZ: America/Mexico_City
+    volumes:
+      - data:/data
+    networks: [proxy]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.${APP_PREFIX:-dreports}-api.rule=Host(`${HOST:?}`)"
+      - "traefik.http.routers.${APP_PREFIX:-dreports}-api.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
+      - "traefik.http.routers.${APP_PREFIX:-dreports}-api.service=${APP_PREFIX:-dreports}-api"
+      - "traefik.http.services.${APP_PREFIX:-dreports}-api.loadbalancer.server.port=8000"
+
+volumes:
+  data:
+
+networks:
+  proxy:
+    external: true

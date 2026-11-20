@@ -17,3 +17,5 @@ server/.pytest_cache/
 *.db
 *.zip
 *.log
+deploy/.env
+server/.venv/
