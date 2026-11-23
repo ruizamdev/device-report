@@ -156,8 +156,10 @@ jobs:
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Credenciales de GHCR aisladas por despliegue (DOCKER_CONFIG temporal): el usuario deploy es
+          # compartido por todas las apps y un `docker logout` en ~/.docker rompía despliegues simultáneos.
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$VPS_USER@$VPS_HOST" \
-            "set -e; trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+            "set -e; export DOCKER_CONFIG=\$(mktemp -d); trap 'rm -rf \"\$DOCKER_CONFIG\"' EXIT
              docker login ghcr.io -u '${{ github.actor }}' --password-stdin >/dev/null
              chmod +x '$APP_DIR/deploy.sh' '$APP_DIR/set-admin-password.sh'
              IMAGE_TAG='$IMAGE_TAG' '$APP_DIR/deploy.sh'" <<< "$GHCR_TOKEN"
